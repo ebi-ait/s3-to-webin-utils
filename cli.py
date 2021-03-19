@@ -19,7 +19,7 @@ class UploadUtils:
     
     def remove_checksum_from_files(self):
         for s3_file in listdir(self.s3_folder):
-            if self.is_data_file(s3_file) and s3_file not in self.checksum_map:  # Not already had checksum removed
+            if self.ends_with_checksum(s3_file):
                 name_without_checksum = self.get_name_without_checksum(s3_file)
                 print('New S3 file detected {}'.format(name_without_checksum))
                 self.rename_file(self.s3_folder, s3_file, name_without_checksum)
@@ -32,7 +32,7 @@ class UploadUtils:
 
     def copy_files_to_webin(self):
         for s3_file in listdir(self.s3_folder):
-            if self.is_data_file(s3_file) and s3_file in self.checksum_map:  # File has had checksum removed
+            if s3_file in self.checksum_map:  # File previously had a checksum which has been removed
                 s3_file_path = join(self.s3_folder, s3_file)
                 webin_file_path = join(self.webin_folder, s3_file)
                 if exists(webin_file_path):
@@ -46,15 +46,14 @@ class UploadUtils:
             self.save_checksums_file(self.checksums_path, self.checksum_map)
 
     def get_name_without_checksum(self, name_with_checksum):
-        name_without_checksum, stop, checksum = name_with_checksum.rpartition('.')
+        name_without_checksum, _, checksum = name_with_checksum.rpartition('.')
         self.checksum_map[name_without_checksum] = checksum
         self.save_checksums = True
         return name_without_checksum
 
     @staticmethod
-    def is_data_file(file_name):
-        return (not fnmatch(file_name, '*.xlsx*')  # Not Excel Files
-                and file_name not in [CHECKSUMS_FILE_NAME, WEBIN_MANIFEST_FILE_NAME])  # Not Checksums File or Manifest File
+    def ends_with_checksum(file_name):
+        return len(file_name.rpartition('.')[2]) == 32
 
     @staticmethod
     def rename_file(folder, old_name, new_name):
@@ -89,7 +88,7 @@ class UploadUtils:
         with open(checksums_path, "r") as checksums_file:
             line = checksums_file.readline()
             while line:
-                file_name, comma, file_checksum = line.strip().partition(',')
+                file_name, _, file_checksum = line.strip().partition(',')
                 checksum_map[file_name] = file_checksum
                 line = checksums_file.readline()
         return checksum_map
