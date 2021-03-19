@@ -23,9 +23,7 @@ class UploadUtils:
                 name_without_checksum = self.get_name_without_checksum(s3_file)
                 print('New S3 file detected {}'.format(name_without_checksum))
                 self.rename_file(self.s3_folder, s3_file, name_without_checksum)
-                stale_webin_file = join(self.webin_folder, name_without_checksum)
-                if exists(stale_webin_file):
-                    remove(stale_webin_file)
+                self.remove_stale_file(join(self.webin_folder, name_without_checksum))
 
     def validate_files(self):
         pass
@@ -59,10 +57,14 @@ class UploadUtils:
     def rename_file(folder, old_name, new_name):
         path_with_checksum = join(folder, old_name)
         path_without_checksum = join(folder, new_name)
-        if exists(path_without_checksum):  # Delete old version of file
-            print('Removing stale version of S3 file {}'.format(path_without_checksum))
-            remove(path_without_checksum)
+        UploadUtils.remove_stale_file(path_without_checksum)
         rename(path_with_checksum, path_without_checksum)
+
+    @staticmethod
+    def remove_stale_file(file_path):
+        if exists(file_path):
+            print('Removing stale file {}'.format(file_path))
+            remove(file_path)
 
     @staticmethod
     def setup_s3(s3_root, secure_key):
