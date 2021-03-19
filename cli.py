@@ -40,14 +40,25 @@ class UploadUtils:
                     shutil.copyfile(s3_file_path, webin_file_path)
 
     def close(self):
-        if self.save_checksums:
-            self.save_checksums_file(self.checksums_path, self.checksum_map)
+        self.save_checksums_file()
 
     def get_name_without_checksum(self, name_with_checksum):
         name_without_checksum, _, checksum = name_with_checksum.rpartition('.')
         self.checksum_map[name_without_checksum] = checksum
         self.save_checksums = True
         return name_without_checksum
+
+    def save_checksums_file(self):
+        if self.save_checksums:
+            file_checksums = []
+            for file_name, checksum in self.checksum_map.items(): 
+                file_checksums.append('{},{}'.format(file_name, checksum))
+            if exists(self.checksums_path):
+                remove(self.checksums_path)
+            print('Saving checksums file: {}'.format(self.checksums_path))
+            with open(self.checksums_path, "w") as checksums_file:
+                checksums_file.write("\n".join(file_checksums))
+            self.save_checksums = False
 
     @staticmethod
     def ends_with_checksum(file_name):
@@ -59,7 +70,7 @@ class UploadUtils:
         path_without_checksum = join(folder, new_name)
         UploadUtils.remove_stale_file(path_without_checksum)
         rename(path_with_checksum, path_without_checksum)
-
+    
     @staticmethod
     def remove_stale_file(file_path):
         if exists(file_path):
@@ -95,17 +106,6 @@ class UploadUtils:
                 line = checksums_file.readline()
         return checksum_map
     
-    @staticmethod
-    def save_checksums_file(checksums_path, checksum_map):
-        file_checksums = []
-        for file_name, checksum in checksum_map.items(): 
-            file_checksums.append('{},{}'.format(file_name, checksum))
-        if exists(checksums_path):
-            remove(checksums_path)
-        print('Saving checksums file: {}'.format(checksums_path))
-        with open(checksums_path, "w") as checksums_file:
-            checksums_file.write("\n".join(file_checksums))
-
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(
@@ -128,5 +128,6 @@ if __name__ == '__main__':
     args = parser.parse_args()
     with closing(UploadUtils(args.secure_key, args.webin_user, s3_root=args.s3_root, webin_root=args.webin_root)) as upload_utils:
         upload_utils.remove_checksum_from_files()
+        upload_utils.save_checksums_file()
         upload_utils.validate_files()
         upload_utils.copy_files_to_webin()
